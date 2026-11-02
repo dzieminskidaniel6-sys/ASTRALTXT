@@ -1,0 +1,22 @@
+name: Build Android APK
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['**.gd','**.tscn','**.godot','export_presets.cfg','.github/workflows/android.yml']
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: barichello/godot-ci:4.4.1
+    steps:
+      - uses: actions/checkout@v4
+      - run: mkdir -p build
+      - name: Import
+        run: godot --headless --editor --path . --quit
+      - name: Export APK
+        run: godot --headless --path . --export-debug Android build/wies-exe.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wies-exe-android
+          path: build/wies-exe.apk
