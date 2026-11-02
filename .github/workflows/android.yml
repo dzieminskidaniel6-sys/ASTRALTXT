@@ -15,12 +15,14 @@ jobs:
       ANDROID_SDK_ROOT: /usr/lib/android-sdk
     steps:
       - uses: actions/checkout@v4
-      - name: Install Android build tools and Java
+      - name: Install Android SDK packages
         run: |
           apt-get update
           apt-get install -y openjdk-17-jdk unzip wget
-          yes | sdkmanager --licenses || true
-          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          yes | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" --licenses || true
+          sdkmanager --sdk_root="$ANDROID_SDK_ROOT" "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+          test -x "$ANDROID_SDK_ROOT/build-tools/35.0.0/apksigner"
+          test -x "$ANDROID_SDK_ROOT/platform-tools/adb"
       - name: Install matching Godot export templates
         run: |
           mkdir -p "$HOME/.local/share/godot/export_templates/4.4.1.stable"
@@ -28,15 +30,30 @@ jobs:
           mkdir -p /tmp/godot-templates
           unzip -q /tmp/godot-templates.tpz -d /tmp/godot-templates
           cp /tmp/godot-templates/templates/* "$HOME/.local/share/godot/export_templates/4.4.1.stable/"
-      - name: Create debug signing key
+      - name: Configure Godot Android paths
         run: |
-          mkdir -p "$HOME/.android"
-          keytool -genkeypair -v -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          mkdir -p "$HOME/.config/godot" "$HOME/.android"
+          keytool -genkeypair -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          cat > "$HOME/.config/godot/editor_settings-4.tres" <<EOF
+          [gd_resource type="EditorSettings" format=3]
+          [resource]
+          export/android/android_sdk_path = "$ANDROID_SDK_ROOT"
+          export/android/java_sdk_path = "$JAVA_HOME"
+          export/android/debug_keystore = "$HOME/.android/debug.keystore"
+          export/android/debug_keystore_user = "androiddebugkey"
+          export/android/debug_keystore_pass = "android"
+          EOF
       - run: mkdir -p build
       - name: Import project
         run: godot --headless --editor --path . --quit
       - name: Export APK
-        run: godot --headless --path . --export-debug Android build/wies-exe.apk
+        env:
+          GODOT_ANDROID_KEYSTORE_DEBUG_PATH: /github/home/.android/debug.keystore
+          GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
+          GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
+        run: |
+          godot --headless --verbose --path . --export-debug Android build/wies-exe.apk
+          test -s build/wies-exe.apk
       - uses: actions/upload-artifact@v4
         with:
           name: wies-exe-android
