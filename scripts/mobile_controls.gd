@@ -1,4 +1,4 @@
-extends CanvasLayer
+extends Control
 signal move_changed(value:Vector2)
 signal jump_requested
 var center:=Vector2.ZERO
@@ -7,10 +7,12 @@ var knob:=Vector2.ZERO
 var finger:=-1
 var jump_area:=Rect2()
 func _ready()->void:
+	mouse_filter=Control.MOUSE_FILTER_IGNORE
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	get_viewport().size_changed.connect(_layout)
 	_layout()
 func _layout()->void:
-	var s=get_viewport().get_visible_rect().size
+	var s=get_viewport_rect().size
 	center=Vector2(112,s.y-112)
 	jump_area=Rect2(s.x-150,s.y-145,112,112)
 	queue_redraw()
